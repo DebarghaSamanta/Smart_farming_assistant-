@@ -15,6 +15,56 @@ def store_weather_forecast(
     connection = get_connection()
 
     try:
+
+        # Check whether this farm already has a forecast
+        # for this date.
+        cursor = connection.execute(
+            """
+            SELECT forecast_id
+            FROM weather_forecasts
+            WHERE farm_id = ?
+              AND forecast_date = ?
+            LIMIT 1
+            """,
+            (
+                farm_id,
+                forecast_date
+            )
+        )
+
+        existing = cursor.fetchone()
+
+        if existing:
+
+            connection.execute(
+                """
+                UPDATE weather_forecasts
+                SET
+                    temperature_min = ?,
+                    temperature_max = ?,
+                    humidity = ?,
+                    rainfall = ?,
+                    rainfall_probability = ?,
+                    wind_speed = ?,
+                    weather_description = ?
+                WHERE forecast_id = ?
+                """,
+                (
+                    temperature_min,
+                    temperature_max,
+                    humidity,
+                    rainfall,
+                    rainfall_probability,
+                    wind_speed,
+                    weather_description,
+                    existing["forecast_id"]
+                )
+            )
+
+            connection.commit()
+
+            return existing["forecast_id"]
+
         cursor = connection.execute(
             """
             INSERT INTO weather_forecasts (
@@ -49,8 +99,6 @@ def store_weather_forecast(
 
     finally:
         connection.close()
-
-
 def get_weather_forecast(farm_id):
     connection = get_connection()
 

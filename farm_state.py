@@ -56,7 +56,91 @@ def calculate_trend(values, tolerance=0.05):
 
     return "DECREASING"
 
+def calculate_condition_duration(
+    history,
+    condition_function
+):
+    """
+    Calculate how long the latest condition has continuously
+    remained true.
 
+    history:
+        Readings ordered oldest -> newest.
+
+    condition_function:
+        Function that accepts one reading and returns True/False.
+
+    Returns:
+        {
+            "active": True/False,
+            "consecutive_readings": int,
+            "duration_seconds": float,
+            "start_timestamp": str or None,
+            "end_timestamp": str or None
+        }
+    """
+
+    if not history:
+        return {
+            "active": False,
+            "consecutive_readings": 0,
+            "duration_seconds": 0,
+            "start_timestamp": None,
+            "end_timestamp": None
+        }
+
+    # Start from newest reading.
+    latest = history[-1]
+
+    if not condition_function(latest):
+        return {
+            "active": False,
+            "consecutive_readings": 0,
+            "duration_seconds": 0,
+            "start_timestamp": None,
+            "end_timestamp": None
+        }
+
+    consecutive = [latest]
+
+    # Walk backwards until condition breaks.
+    for i in range(len(history) - 2, -1, -1):
+
+        if condition_function(history[i]):
+            consecutive.append(history[i])
+        else:
+            break
+
+    consecutive.reverse()
+
+    start_timestamp = consecutive[0]["timestamp"]
+    end_timestamp = consecutive[-1]["timestamp"]
+
+    try:
+        from datetime import datetime
+
+        start = datetime.fromisoformat(
+            start_timestamp
+        )
+
+        end = datetime.fromisoformat(
+            end_timestamp
+        )
+
+        duration_seconds = (
+            end - start
+        ).total_seconds()
+
+    except (ValueError, TypeError):
+        duration_seconds = 0
+
+    return {
+        "active": True,
+        "consecutive_readings": len(consecutive),
+        "duration_seconds": duration_seconds,
+        "start_timestamp": start_timestamp,
+        "end_timestamp": end_timestamp
+    }
 # ============================================================
 # NODE HISTORY
 # ============================================================

@@ -138,8 +138,10 @@ def get_latest_field_readings(device_id):
 
 def get_sensor_history(device_id, limit=100):
     """
-    Get recent readings from all sensor nodes belonging
+    Get recent readings for every sensor node belonging
     to one device.
+
+    The limit is applied PER SENSOR NODE.
     """
 
     connection = get_connection()
@@ -147,20 +149,49 @@ def get_sensor_history(device_id, limit=100):
     try:
         cursor = connection.execute(
             """
-            SELECT
-                sr.*,
-                sn.grid_position
-            FROM sensor_readings sr
-            JOIN sensor_nodes sn
-                ON sr.sensor_node_id = sn.sensor_node_id
-            WHERE sn.device_id = ?
-            ORDER BY sr.timestamp DESC
-            LIMIT ?
+            SELECT sensor_node_id
+            FROM sensor_nodes
+            WHERE device_id = ?
             """,
-            (device_id, limit)
+            (device_id,)
         )
 
-        return [dict(row) for row in cursor.fetchall()]
+        sensor_nodes = [
+            row["sensor_node_id"]
+            for row in cursor.fetchall()
+        ]
+
+        history = []
+
+        for sensor_node_id in sensor_nodes:
+
+            cursor = connection.execute(
+                """
+                SELECT
+                    sr.*,
+                    sn.grid_position
+                FROM sensor_readings sr
+                JOIN sensor_nodes sn
+                    ON sr.sensor_node_id = sn.sensor_node_id
+                WHERE sr.sensor_node_id = ?
+                ORDER BY sr.timestamp DESC
+                LIMIT ?
+                """,
+                (sensor_node_id, limit)
+            )
+
+            history.extend(
+                dict(row)
+                for row in cursor.fetchall()
+            )
+
+        # Keep newest readings first overall.
+        history.sort(
+            key=lambda reading: reading["timestamp"],
+            reverse=True
+        )
+
+        return history
 
     finally:
         connection.close()

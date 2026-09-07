@@ -10,7 +10,8 @@ SUPPORTED_STATES = {
     "Maharashtra",
     "Punjab",
     "Tamil Nadu",
-    "Odisha"
+    "Odisha",
+    "Uttar Pradesh",
 }
 
 

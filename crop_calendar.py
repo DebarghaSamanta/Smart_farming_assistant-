@@ -120,7 +120,16 @@ RICE_CALENDARS = {
             "months": [6, 7],
             "duration_days": 130
         }
+    ],
+    "Uttar Pradesh": [
+
+        {
+            "season": "KHARIF_RICE",
+            "months": [5, 6, 7],
+            "duration_days": 130
+        }
     ]
+
 }
 
 
