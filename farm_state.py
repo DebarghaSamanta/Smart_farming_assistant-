@@ -3,7 +3,7 @@ from sensor_repository import (
     get_sensor_history
 )
 
-from database import get_crop
+from database import get_crop,get_farm
 from crop_context import get_crop_context
 from weather_repository import get_weather_forecast
 
@@ -280,7 +280,10 @@ def build_farm_state(
     weather=None
 ):
    
-
+    if state is None and farm_id is not None:
+        farm = get_farm(farm_id)
+        if farm:
+            state = farm["state"]
     # ========================================================
     # 1. Latest sensor readings
     # ========================================================
