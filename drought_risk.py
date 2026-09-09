@@ -410,7 +410,14 @@ def fuse_drought_evidence(evidence, drought_sensitivity=1.0):
     if available_weight == 0:
         return 0.0, "NONE", [], 0.0
 
-    raw_fraction = positive_weight / MAX_POSSIBLE_SCORE
+    # CHANGED (option 2): renormalize against what was actually
+    # available, not the full weight table. A farm with only 2 of
+    # 6 signals reporting is now judged on those 2 signals' own
+    # severity, not diluted against 4 checks that never ran.
+    # `coverage` still reports how much of the full picture that is,
+    # so low-coverage assessments are noisier but no longer silently
+    # suppressed toward NONE/LOW regardless of what little evidence says.
+    raw_fraction = positive_weight / available_weight
     sensitivity = max(0.0, min(1.0, drought_sensitivity))
     adjusted_score = raw_fraction * (0.5 + 0.5 * sensitivity)
     coverage = available_weight / MAX_POSSIBLE_SCORE
@@ -573,7 +580,14 @@ def assess_drought_risk(
             check_seven_day_deficit(recent_7day_sum, baseline["baseline_7day_mm"], observed_7)
             if status_7 != "UNAVAILABLE" else None
         ),
-        "dry_spell": check_dry_spell([r["rainfall_mm"] for r in records]) if records else None,
+        # FIXED: now gated on status_30 like the other rainfall checks.
+        # Previously this ran on `records` regardless of gaps, so a
+        # logging gap got silently glued into one long dry streak
+        # (proven: 3 dry + 2-day gap + 3 dry days = false 6-day streak).
+        "dry_spell": (
+            check_dry_spell([r["rainfall_mm"] for r in records])
+            if records and status_30 != "UNAVAILABLE" else None
+        ),
         "soil_moisture_declining": soil_evidence,
         "atmospheric_drying": vpd_high,
         "rain_forecast_insufficient": check_rain_forecast_insufficient(
