@@ -4,7 +4,7 @@ from sensor_repository import (
 )
 
 from database import get_crop
-from crop_calendar import get_crop_status
+from crop_context import get_crop_context
 from weather_repository import get_weather_forecast
 
 DEFAULT_HISTORY_LIMIT = 20
@@ -56,91 +56,7 @@ def calculate_trend(values, tolerance=0.05):
 
     return "DECREASING"
 
-def calculate_condition_duration(
-    history,
-    condition_function
-):
-    """
-    Calculate how long the latest condition has continuously
-    remained true.
 
-    history:
-        Readings ordered oldest -> newest.
-
-    condition_function:
-        Function that accepts one reading and returns True/False.
-
-    Returns:
-        {
-            "active": True/False,
-            "consecutive_readings": int,
-            "duration_seconds": float,
-            "start_timestamp": str or None,
-            "end_timestamp": str or None
-        }
-    """
-
-    if not history:
-        return {
-            "active": False,
-            "consecutive_readings": 0,
-            "duration_seconds": 0,
-            "start_timestamp": None,
-            "end_timestamp": None
-        }
-
-    # Start from newest reading.
-    latest = history[-1]
-
-    if not condition_function(latest):
-        return {
-            "active": False,
-            "consecutive_readings": 0,
-            "duration_seconds": 0,
-            "start_timestamp": None,
-            "end_timestamp": None
-        }
-
-    consecutive = [latest]
-
-    # Walk backwards until condition breaks.
-    for i in range(len(history) - 2, -1, -1):
-
-        if condition_function(history[i]):
-            consecutive.append(history[i])
-        else:
-            break
-
-    consecutive.reverse()
-
-    start_timestamp = consecutive[0]["timestamp"]
-    end_timestamp = consecutive[-1]["timestamp"]
-
-    try:
-        from datetime import datetime
-
-        start = datetime.fromisoformat(
-            start_timestamp
-        )
-
-        end = datetime.fromisoformat(
-            end_timestamp
-        )
-
-        duration_seconds = (
-            end - start
-        ).total_seconds()
-
-    except (ValueError, TypeError):
-        duration_seconds = 0
-
-    return {
-        "active": True,
-        "consecutive_readings": len(consecutive),
-        "duration_seconds": duration_seconds,
-        "start_timestamp": start_timestamp,
-        "end_timestamp": end_timestamp
-    }
 # ============================================================
 # NODE HISTORY
 # ============================================================
@@ -326,68 +242,22 @@ def build_spatial_state(node_states):
 # CROP CONTEXT
 # ============================================================
 
-def build_crop_context(
-    field_id,
-    state,
-    current_date=None
-):
-
+def build_crop_context(field_id, state, current_date=None):
     if field_id is None:
-
-        return {
-            "available": False
-        }
+        return {"available": False}
 
     crop = get_crop(field_id)
 
     if crop is None:
+        return {"available": False}
 
-        return {
-            "available": False
-        }
-
-    crop_context = {
-
-        "available": True,
-
-        "crop_id":
-            crop["crop_id"],
-
-        "crop_name":
-            crop["crop_name"],
-
-        "sowing_date":
-            crop["sowing_date"],
-
-        "season":
-            crop["season"],
-
-        "state":
-            state
-    }
-
-    # --------------------------------------------------------
-    # Growth stage
-    # --------------------------------------------------------
-
-    if state is not None:
-
-        crop_status = get_crop_status(
-
-            state=state,
-
-            sowing_date=
-                crop["sowing_date"],
-
-            selected_season=
-                crop["season"],
-
-            current_date=current_date
-        )
-
-        crop_context["growth"] = crop_status
-
-    return crop_context
+    return get_crop_context(
+        crop=crop["crop_name"],
+        state=state,
+        season=crop["season"],
+        sowing_date=crop["sowing_date"],
+        current_date=current_date,
+    )
 
 
 # ============================================================
@@ -474,12 +344,10 @@ def build_farm_state(
         state=state,
         current_date=current_date
     )
-    # ========================================================
-    # 6. Weather forecast
-    # ========================================================
 
     if weather is None and farm_id is not None:
         weather = get_weather_forecast(farm_id)
+
     # ========================================================
     # 6. Final Farm State
     # ========================================================
