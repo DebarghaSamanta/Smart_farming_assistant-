@@ -237,6 +237,18 @@ def build_spatial_state(node_states):
 
     return spatial_state
 
+def get_drought_node_trends(farm_state):
+    node_trends = []
+
+    for node in farm_state.get("sensor_nodes", []):
+        trends = node.get("trends", {})
+
+        node_trends.append({
+            "sensor_node_id": node.get("sensor_node_id"),
+            "soil_moisture_trend": trends.get("soil_moisture")
+        })
+
+    return node_trends
 
 # ============================================================
 # CROP CONTEXT

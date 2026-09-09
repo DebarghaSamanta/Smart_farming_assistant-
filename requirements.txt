@@ -1,3 +1,6 @@
 requests
 flask
 flask-cors
+twilio
+numpy
+pytest

@@ -26,7 +26,7 @@ from database import (
     register_crop,
     register_device
 )
-
+from sensor_repository import register_sensor_node
 
 # =========================================================
 # REGISTER COMPLETE FARM SYSTEM
@@ -277,11 +277,33 @@ def register_complete_farm(
 
         field_id=field_id
     )
-
-    print(
-        "Device registered:",
-        validated_device_id
+    register_sensor_node(
+    sensor_node_id=f"{validated_device_id}-NW",
+    device_id=validated_device_id,
+    grid_position="NW"
     )
+
+    register_sensor_node(
+        sensor_node_id=f"{validated_device_id}-NE",
+        device_id=validated_device_id,
+        grid_position="NE"
+    )
+
+    register_sensor_node(
+        sensor_node_id=f"{validated_device_id}-SW",
+        device_id=validated_device_id,
+        grid_position="SW"
+    )
+
+    register_sensor_node(
+        sensor_node_id=f"{validated_device_id}-SE",
+        device_id=validated_device_id,
+        grid_position="SE"
+    )
+    print(
+            "Device registered:",
+            validated_device_id
+        )
 
 
     # =====================================================
