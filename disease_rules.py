@@ -38,33 +38,6 @@ DISEASE_RULES = {
         }
     },
 
-    "LEAF_SMUT": {
-        "name": "Leaf Smut",
-        "temperature": {
-            "low": 20,
-            "high": 28,
-            "tolerance": 5
-        },
-        "humidity": {
-            "threshold": 85,
-            "span": 15
-        },
-        "rainfall": {
-            "low": 5,
-            "high": 20,
-            "tolerance": 15
-        },
-        "stage_weights": {
-            "ESTABLISHMENT": 0.2,
-            "SEEDLING": 0.3,
-            "VEGETATIVE": 0.5,
-            "TILLERING": 0.6,
-            "REPRODUCTIVE": 0.8,
-            "FLOWERING": 0.9,
-            "GRAIN_FILLING": 1.0,
-            "MATURITY": 0.7
-        }
-    },
 
     "BAKANAE": {
         "name": "Bakanae",
@@ -199,13 +172,6 @@ REAL_WEIGHTS = {
         "humidity": 0.197441,
         "rainfall": 0.340827,
         "stage": 0.294309,
-    },
-
-    "LEAF_SMUT": {
-        "temperature": 0.137527,
-        "humidity": 0.257104,
-        "rainfall": 0.340827,
-        "stage": 0.264542,
     },
 
     "BAKANAE": {
