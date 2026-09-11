@@ -8,12 +8,11 @@ from sensor_repository import store_sensor_reading
 DEVICE_ID = "RPI-RICE-0001"
 
 SENSOR_NODES = {
-    "NODE-NW": "NW",
-    "NODE-NE": "NE",
-    "NODE-SW": "SW",
-    "NODE-SE": "SE"
+    "RPI-RICE-0001-NW": "NW",
+    "RPI-RICE-0001-NE": "NE",
+    "RPI-RICE-0001-SW": "SW",
+    "RPI-RICE-0001-SE": "SE"
 }
-
 
 # ---------------------------------------------------------
 # Scenario definitions
@@ -229,7 +228,7 @@ if __name__ == "__main__":
     # DISEASE_FAVORABLE
 
     run_simulation(
-        scenario="FLOOD",
+        scenario="DISEASE_FAVORABLE",
         interval_seconds=5,
         cycles=10
     )
