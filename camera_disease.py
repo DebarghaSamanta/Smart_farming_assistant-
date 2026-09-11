@@ -1,5 +1,6 @@
 """
-Rice disease camera inference using MobileNetV3 ONNX.
+Rice disease camera inference using the final
+MobileNetV3-Small + 576-D embedding + KNN ONNX pipeline.
 """
 
 from __future__ import annotations
@@ -12,32 +13,24 @@ from PIL import Image
 
 
 MODEL_ROOT = Path("models")
-DEFAULT_MODEL_NAME = "rice_disease_mobilenetv3_best.onnx"
 
+
+DEFAULT_MODEL_NAME = "rice_disease_final5_mobilenetv3_knn.onnx"
+
+
+# FINAL 5 DISEASE CLASSES
+# IMPORTANT: order must match the ONNX model
 DEFAULT_CLASSES = [
     "Bacterial Blight",
-    "Bacterial Streak",
     "Bakanae",
     "Brown Spot",
     "False Smut",
-    "Grassy Stunt Virus",
-    "Healthy",
-    "Hispa",
-    "Leaf Blast",
-    "Leaf Scald",
-    "Leaf Smut",
-    "Narrow Brown Spot",
-    "Neck Blast",
-    "Ragged Stunt Virus",
-    "Sheath Blight",
-    "Sheath Rot",
-    "Stem Rot",
     "Tungro",
 ]
 
 
 def find_model(model_root=MODEL_ROOT):
-    """Find the current rice disease ONNX model."""
+    """Find the final rice disease ONNX model."""
 
     model_path = Path(model_root) / DEFAULT_MODEL_NAME
 
@@ -102,14 +95,23 @@ def load_classes(metadata_path=None):
 
 def prepare_image(image_path):
     """
-    Prepare image exactly for MobileNetV3.
+    Prepare image exactly as expected by the exported ONNX pipeline.
 
-    Input:
+    Input to ONNX:
         RGB
         224 x 224
+        float32
+        pixel range [0, 255]
 
-    MobileNetV3 preprocessing:
-        [0, 255] -> [-1, 1]
+    IMPORTANT:
+    The ONNX model itself performs:
+        /255
+        ImageNet normalization
+        MobileNetV3 feature extraction
+        L2 normalization
+        KNN classification
+
+    Therefore DO NOT normalize the image here.
     """
 
     image_path = Path(image_path)
@@ -124,7 +126,8 @@ def prepare_image(image_path):
         image = image.convert("RGB")
 
         image = image.resize(
-            (224, 224)
+            (224, 224),
+            Image.Resampling.BILINEAR,
         )
 
         array = np.asarray(
@@ -132,101 +135,60 @@ def prepare_image(image_path):
             dtype=np.float32
         )
 
-    
-    return np.expand_dims(array, axis=0)
+    # ONNX expects:
+    # [1, 224, 224, 3]
+    return np.expand_dims(
+        array,
+        axis=0
+    )
 
 
-def predict_onnx(model_path, image):
-    """Run ONNX inference on CPU and print all class scores."""
+def predict_onnx(model_path, image, classes):
 
     import onnxruntime as ort
 
     session = ort.InferenceSession(
         str(model_path),
-        providers=["CPUExecutionProvider"],
+        providers=["CPUExecutionProvider"]
     )
 
     input_name = session.get_inputs()[0].name
 
-    output = session.run(
+    outputs = session.run(
         None,
         {
             input_name: image
         }
-    )[0]
-
-    # Your 18 classes
-
-    print("\n--- MODEL OUTPUT ---")
-
-    for i, score in enumerate(output[0]):
-        print(f"{i:2d} {DEFAULT_CLASSES[i]:25s} {float(score):.6f}")
+    )
 
     predicted_index = int(
-        np.argmax(output, axis=1)[0]
+        np.asarray(outputs[0]).reshape(-1)[0]
     )
 
-    print("--------------------")
-    print(
-        "Winner:",
-        DEFAULT_CLASSES[predicted_index],
-        "index:",
-        predicted_index
+    similarity = float(
+        np.asarray(outputs[1]).reshape(-1)[0]
     )
 
-    return predicted_index
-
-def predict_from_image(
-    image_path,
-    model_path=None,
-    metadata_path=None,
-):
-    """
-    Predict rice disease from one leaf image.
-
-    Returns ONLY the predicted class.
-
-    Example:
-        "Brown Spot"
-    """
-
-    if model_path is None:
-        model_path = find_model()
-    else:
-        model_path = Path(model_path)
-
-    if not model_path.exists():
-        raise FileNotFoundError(
-            f"Model not found: {model_path}"
-        )
-
-    if model_path.suffix.lower() != ".onnx":
-        raise ValueError(
-            "Camera inference requires "
-            "an ONNX model (.onnx)."
-        )
-
-    classes = load_classes(
-        metadata_path
+    embedding = np.asarray(
+        outputs[2],
+        dtype=np.float32
     )
 
-    image = prepare_image(
-        image_path
-    )
+    disease = classes[predicted_index]
 
-    predicted_index = predict_onnx(
-        model_path,
-        image
-    )
+    print("\n--- RICE DISEASE MODEL OUTPUT ---")
+    print("Predicted class :", disease)
+    print("Class index     :", predicted_index)
+    print(f"KNN similarity  : {similarity:.6f}")
+    print("Embedding shape :", embedding.shape)
+    print("----------------------------------")
 
-    if predicted_index >= len(classes):
-        raise RuntimeError(
-            f"Model returned class index "
-            f"{predicted_index}, but metadata "
-            f"contains only {len(classes)} classes."
-        )
-
-    return classes[predicted_index]
+    return {
+        "class_index": predicted_index,
+        "disease": disease,
+        "similarity": similarity,
+        "embedding": embedding,
+    }
 
 
 def predict_camera_disease(
@@ -237,18 +199,34 @@ def predict_camera_disease(
     """
     Return camera evidence for the main pipeline.
 
-    The actual classifier remains single-label.
+    The classifier remains single-label,
+    but the ONNX model also provides KNN similarity.
     """
 
-    disease = predict_from_image(
-        image_path=image_path,
+    if model_path is None:
+        model_path = find_model()
+    else:
+        model_path = Path(model_path)
+
+    classes = load_classes(
+        metadata_path
+    )
+
+    image = prepare_image(
+        image_path
+    )
+
+    result = predict_onnx(
         model_path=model_path,
-        metadata_path=metadata_path,
+        image=image,
+        classes=classes,
     )
 
     return {
         "available": True,
-        "disease": disease,
+        "disease": result["disease"],
+        "class_index": result["class_index"],
+        "similarity": result["similarity"],
         "source": "CAMERA",
         "image": str(image_path),
     }
@@ -259,7 +237,10 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Rice disease camera inference"
+        description=(
+            "Rice disease camera inference using "
+            "MobileNetV3 + KNN ONNX"
+        )
     )
 
     parser.add_argument(
@@ -269,12 +250,16 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--model",
-        help="Optional ONNX model path"
+        help=(
+            "Optional ONNX model path"
+        )
     )
 
     parser.add_argument(
         "--metadata",
-        help="Optional metadata JSON path"
+        help=(
+            "Optional metadata JSON path"
+        )
     )
 
     args = parser.parse_args()
@@ -286,6 +271,13 @@ if __name__ == "__main__":
     )
 
     print(
-        "Predicted disease:",
+        "\nPredicted disease:",
         result["disease"]
     )
+
+    if result["similarity"] is not None:
+
+        print(
+            "KNN similarity:",
+            f"{result['similarity']:.6f}"
+        )

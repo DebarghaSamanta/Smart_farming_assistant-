@@ -4,3 +4,7 @@ flask-cors
 twilio
 numpy
 pytest
+cv2
+joblib
+pandas
+onnxruntime

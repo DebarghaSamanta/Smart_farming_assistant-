@@ -1,0 +1,92 @@
+{
+  "version": "1.0",
+  "project": "Rice Disease Detection",
+  "deployment_format": "ONNX",
+  "model": {
+    "architecture": "MobileNetV3-Small",
+    "backbone": "ImageNet pretrained MobileNetV3-Small",
+    "embedding_dimension": 576,
+    "classifier_type": "1-NN cosine similarity",
+    "knn_k": 1,
+    "reference_embeddings": 8397,
+    "reference_embedding_dimension": 576,
+    "reference_labels_embedded_in_onnx": true,
+    "preprocessing_inside_onnx": true
+  },
+  "input": {
+    "name": "image",
+    "shape": [
+      1,
+      224,
+      224,
+      3
+    ],
+    "dtype": "float32",
+    "value_range": [
+      0,
+      255
+    ],
+    "color_order": "RGB"
+  },
+  "preprocessing": {
+    "resize": [
+      224,
+      224
+    ],
+    "scale": "divide by 255.0",
+    "normalize_mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "normalize_std": [
+      0.229,
+      0.224,
+      0.225
+    ],
+    "note": "Resize to 224x224 must be performed before passing the image tensor to ONNX."
+  },
+  "classes": {
+    "0": "Bacterial Blight",
+    "1": "Bakanae",
+    "2": "Brown Spot",
+    "3": "False Smut",
+    "4": "Tungro"
+  },
+  "outputs": {
+    "predicted_class": "integer class index",
+    "nearest_similarity": "cosine similarity to nearest training embedding",
+    "embedding": "576-dimensional normalized feature vector"
+  },
+  "training": {
+    "train_images": 8397,
+    "validation_images": 1798,
+    "test_images": 1804,
+    "training_split": "70/15/15",
+    "class_weights": {
+      "Bacterial Blight": 0.8,
+      "Bakanae": 4.0,
+      "Brown Spot": 0.8,
+      "False Smut": 4.0,
+      "Tungro": 1.2
+    }
+  },
+  "performance": {
+    "validation_accuracy": 0.995,
+    "test_accuracy": 0.9961,
+    "test_macro_f1": 0.9977,
+    "test_weighted_f1": 0.9961
+  },
+  "deployment": {
+    "onnx_contains_backbone": true,
+    "onnx_contains_embedding": true,
+    "onnx_contains_knn_reference_embeddings": true,
+    "onnx_contains_knn_labels": true,
+    "external_files_required_for_knn": false,
+    "external_validation": "User tested external images across the five target classes; reported correct predictions."
+  },
+  "files": {
+    "onnx": "rice_disease_final5_mobilenetv3_knn.onnx",
+    "metadata": "rice_disease_final5_metadata.json"
+  }
+}
