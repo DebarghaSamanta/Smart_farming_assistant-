@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Farming Assistant — Judge Demo</title>
+<style>
+:root{--bg:#f5f7f4;--card:#fff;--ink:#172019;--muted:#68736b;--line:#dfe5df;--green:#176b45;--green2:#e8f4ed;--red:#b42318;--red2:#fdecea;--amber:#a15c00;--amber2:#fff4df;--shadow:0 12px 35px rgba(22,39,28,.08)}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,Segoe UI,Arial,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 50px}.hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:22px}.eyebrow{font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--green);text-transform:uppercase}.hero h1{font-size:32px;margin:6px 0 7px}.hero p{margin:0;color:var(--muted);max-width:760px;line-height:1.55}.badge{background:var(--green2);color:var(--green);padding:9px 13px;border-radius:999px;font-size:13px;font-weight:800;white-space:nowrap}
+.grid{display:grid;grid-template-columns:380px 1fr;gap:20px}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:22px}.card h2{font-size:17px;margin:0 0 17px}.field{margin-bottom:16px}.label{display:block;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:7px}.weeks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.week{border:1px solid var(--line);background:#fff;border-radius:11px;padding:12px 7px;cursor:pointer;font-weight:800}.week.active{background:var(--green);color:#fff;border-color:var(--green)}select{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:14px;color:var(--ink)}.risk{display:grid;grid-template-columns:1fr 1fr;gap:8px}.risk button{padding:12px;border:1px solid var(--line);background:#fff;border-radius:10px;font-weight:800;cursor:pointer}.risk button.active.high{background:var(--red2);color:var(--red);border-color:#efb7b2}.risk button.active.low{background:var(--green2);color:var(--green);border-color:#afd5bf}.primary{width:100%;border:0;border-radius:11px;padding:14px;background:var(--green);color:#fff;font-weight:900;font-size:15px;cursor:pointer;margin-top:5px}.primary:disabled{opacity:.6;cursor:wait}.hint{font-size:12px;color:var(--muted);line-height:1.5;margin-top:12px}
+.status{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 15px;border-radius:12px;background:#f7f9f7;border:1px solid var(--line);margin-bottom:18px}.status strong{font-size:14px}.status span{font-size:12px;color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}.metric{border:1px solid var(--line);border-radius:13px;padding:14px}.metric .k{font-size:11px;color:var(--muted);font-weight:800;text-transform:uppercase}.metric .v{font-size:20px;font-weight:900;margin-top:5px}.section{border-top:1px solid var(--line);padding-top:17px;margin-top:17px}.result-row{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #edf0ed}.result-row:last-child{border-bottom:0}.name{font-weight:700}.pill{padding:5px 9px;border-radius:999px;font-size:11px;font-weight:900}.low{background:var(--green2);color:var(--green)}.medium{background:var(--amber2);color:var(--amber)}.high,.very-high{background:var(--red2);color:var(--red)}.alert{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:15px;border-radius:13px;margin-top:17px;background:var(--red2);border:1px solid #efc4bf}.alert.ok{background:var(--green2);border-color:#c9e2d2}.alert button{border:0;border-radius:9px;background:var(--red);color:#fff;padding:10px 13px;font-weight:900;cursor:pointer}.alert.ok button{background:var(--green)}.small{font-size:12px;color:var(--muted);line-height:1.5}.empty{padding:45px 20px;text-align:center;color:var(--muted)}.raw{white-space:pre-wrap;word-break:break-word;background:#111814;color:#dbe8df;border-radius:12px;padding:14px;font:12px/1.5 Consolas,monospace;max-height:360px;overflow:auto}.spinner{display:none}.loading .spinner{display:inline-block}.footer{margin-top:18px;text-align:center;color:var(--muted);font-size:12px}
+@media(max-width:850px){.grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}.hero{display:block}.badge{display:inline-block;margin-top:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div>
+      <div class="eyebrow">Smart Farming Assistant</div>
+      <h1>Three-Week Judge Simulation</h1>
+      <p>Control the simulated field conditions, then let the existing backend Farm State and risk engines evaluate those conditions. The simulation changes inputs — it does not replace the prediction logic.</p>
+    </div>
+    <div class="badge">BACKEND-DRIVEN DEMO</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>1. Select scenario</h2>
+
+      <div class="field">
+        <span class="label">Crop timeline</span>
+        <div class="weeks">
+          <button class="week active" data-week="1">Week 1</button>
+          <button class="week" data-week="2">Week 2</button>
+          <button class="week" data-week="3">Week 3</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="label">Risk domain</span>
+        <select id="category">
+          <option value="drought">Drought / Water Stress</option>
+          <option value="disease" selected>Disease</option>
+          <option value="pest">Pest</option>
+          <option value="npk">NPK</option>
+        </select>
+      </div>
+
+      <div class="field" id="conditionWrap">
+        <span class="label" id="conditionLabel">Disease</span>
+        <select id="condition"></select>
+      </div>
+
+      <div class="field">
+        <span class="label">Scenario</span>
+        <div class="risk">
+          <button class="low" data-risk="low">Low Risk</button>
+          <button class="high active" data-risk="high">High Risk</button>
+        </div>
+      </div>
+
+      <button class="primary" id="run">Generate Farm State <span class="spinner">…</span></button>
+      <div class="hint">The selected scenario is converted into simulated temperature, humidity, rainfall, soil moisture and water-level observations. These are written to the normal project data flow before assessment.</div>
+    </div>
+
+    <div class="card">
+      <div class="status">
+        <strong id="statusTitle">Waiting for simulation</strong>
+        <span id="statusText">Choose a scenario and generate the farm state.</span>
+      </div>
+
+      <div id="results" class="empty">Your Farm State and risk results will appear here.</div>
+    </div>
+  </div>
+
+  <div class="footer">Prototype demonstration • Environmental risk = early warning • Camera = separate field-observation evidence</div>
+</div>
+
+<script>
+const diseases = [
+  {key:'TUNGRO', name:'Rice Tungro'},
+  {key:'BAKANAE', name:'Bakanae'},
+  {key:'BROWN_SPOT', name:'Brown Spot'},
+  {key:'BACTERIAL_BLIGHT', name:'Bacterial Blight'},
+  {key:'FALSE_SMUT', name:'False Smut'}
+];
+const pests = [
+  {key:'BPH', name:'Brown Planthopper'},
+  {key:'YSB', name:'Yellow Stem Borer'},
+  {key:'RICE_LEAF_FOLDER', name:'Rice Leaf Folder'},
+  {key:'GALL_MIDGE', name:'Gall Midge'},
+  {key:'RICE_BUG', name:'Rice Bug (Gundhi Bug)'},
+  {key:'GLH', name:'Green Leaf Hopper'},
+  {key:'WBPH', name:'Whitebacked Planthopper'},
+  {key:'RICE_THRIPS', name:'Rice Thrips'}
+];
+
+let selectedWeek = 1;
+let selectedRisk = 'high';
+let lastResult = null;
+
+const category = document.getElementById('category');
+const condition = document.getElementById('condition');
+const conditionWrap = document.getElementById('conditionWrap');
+const conditionLabel = document.getElementById('conditionLabel');
+const runBtn = document.getElementById('run');
+
+function populateConditions(){
+  const c = category.value;
+  condition.innerHTML = '';
+  if(c === 'disease'){
+    conditionWrap.style.display='block';
+    conditionLabel.textContent='Disease';
+    diseases.forEach(x=>condition.add(new Option(x.name,x.name)));
+  }else if(c === 'pest'){
+    conditionWrap.style.display='block';
+    conditionLabel.textContent='Pest';
+    pests.forEach(x=>condition.add(new Option(x.name,x.name)));
+  }else{
+    conditionWrap.style.display='none';
+  }
+}
+
+function esc(v){return String(v ?? '').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+function riskClass(v){return String(v||'').toLowerCase().replace(/\s+/g,'-');}
+function first(obj, keys, fallback='—'){for(const k of keys){if(obj && obj[k]!==undefined && obj[k]!==null)return obj[k]}return fallback}
+function pct(v){return typeof v==='number' ? v.toFixed(1) : (v ?? '—')}
+
+function renderResult(r){
+  lastResult = r;
+  const s = r.farm_state || {};
+  const sp = s.spatial_state || {};
+  const at = sp.air_temperature || {};
+  const ah = sp.air_humidity || {};
+  const sm = sp.soil_moisture || {};
+  const crop = s.crop || {};
+  const drought = r.drought || {};
+  const disease = r.disease || {};
+  const pest = r.pest || {};
+  const selected = r.selected || {};
+  const npk = r.npk || {};
+
+  const temp = first(at,['average','mean','value']);
+  const hum = first(ah,['average','mean','value']);
+  const soil = first(sm,['average','mean','value']);
+  const stage = first(crop,['growth_stage','stage']);
+
+  let html = `
+    <div class="metrics">
+      <div class="metric"><div class="k">Temperature</div><div class="v">${esc(pct(temp))}°C</div></div>
+      <div class="metric"><div class="k">Humidity</div><div class="v">${esc(pct(hum))}%</div></div>
+      <div class="metric"><div class="k">Soil moisture</div><div class="v">${esc(pct(soil))}</div></div>
+      <div class="metric"><div class="k">Crop stage</div><div class="v" style="font-size:15px">${esc(stage)}</div></div>
+    </div>
+
+    <div class="section">
+      <div class="result-row"><span class="name">Simulation date</span><span>${esc(r.simulation_date)}</span></div>
+      <div class="result-row"><span class="name">Selected domain</span><span>${esc(r.category)}</span></div>
+      <div class="result-row"><span class="name">Selected condition</span><span>${esc(r.condition || 'NPK scenario')}</span></div>
+      <div class="result-row"><span class="name">Requested scenario</span><span class="pill ${riskClass(r.requested_risk)}">${esc(r.requested_risk)}</span></div>
+    </div>`;
+
+  if(r.category==='drought'){
+    html += `<div class="section"><h2>Drought engine</h2>
+      <div class="result-row"><span class="name">Risk level</span><span class="pill ${riskClass(drought.risk_level)}">${esc(drought.risk_level)}</span></div>
+      <div class="result-row"><span class="name">Condition state</span><span>${esc(drought.condition_state)}</span></div>
+      <div class="result-row"><span class="name">Drought score</span><span>${esc(pct(drought.drought_probability))}</span></div>
+      <div class="result-row"><span class="name">Recent 7-day rainfall</span><span>${esc(pct(drought.recent_7day_rainfall_mm))} mm</span></div>
+    </div>`;
+  }
+
+  if(r.category==='disease'){
+    html += `<div class="section"><h2>Disease engine</h2>`;
+    if(selected && Object.keys(selected).length){
+      html += `<div class="result-row"><span class="name">Selected: ${esc(r.condition)}</span><span class="pill ${riskClass(first(selected,['risk_level','risk','level']))}">${esc(first(selected,['risk_level','risk','level']))}</span></div>
+      <div class="result-row"><span class="name">Selected score</span><span>${esc(pct(first(selected,['score','probability'])))}</span></div>`;
+    }
+    const top = disease.top_two || disease.top_diseases || disease.top || [];
+    if(Array.isArray(top)) top.slice(0,3).forEach(x=>html += `<div class="result-row"><span class="name">${esc(first(x,['disease','disease_name','name']))}</span><span class="pill ${riskClass(first(x,['risk_level','risk','level']))}">${esc(first(x,['risk_level','risk','level']))}</span></div>`);
+    html += `</div>`;
+  }
+
+  if(r.category==='pest'){
+    html += `<div class="section"><h2>Pest engine</h2>`;
+    if(selected && Object.keys(selected).length){
+      html += `<div class="result-row"><span class="name">Selected: ${esc(r.condition)}</span><span class="pill ${riskClass(first(selected,['risk_level','risk','level']))}">${esc(first(selected,['risk_level','risk','level']))}</span></div>
+      <div class="result-row"><span class="name">Selected score</span><span>${esc(pct(first(selected,['score','probability'])))}</span></div>`;
+    }
+    const top = pest.top_two || pest.top_pests || pest.top || [];
+    if(Array.isArray(top)) top.slice(0,3).forEach(x=>html += `<div class="result-row"><span class="name">${esc(first(x,['pest','pest_name','name']))}</span><span class="pill ${riskClass(first(x,['risk_level','risk','level']))}">${esc(first(x,['risk_level','risk','level']))}</span></div>`);
+    html += `</div>`;
+  }
+
+  if(r.category==='npk'){
+    html += `<div class="section"><h2>NPK scenario</h2>
+      <div class="result-row"><span class="name">Status</span><span class="pill ${riskClass(npk.status)}">${esc(npk.status)}</span></div>
+      <div class="result-row"><span class="name">Nitrogen</span><span>${esc(npk.nitrogen)}</span></div>
+      <div class="result-row"><span class="name">Phosphorus</span><span>${esc(npk.phosphorus)}</span></div>
+      <div class="result-row"><span class="name">Potassium</span><span>${esc(npk.potassium)}</span></div>
+      <p class="small">${esc(npk.note)}</p>
+    </div>`;
+  }
+
+  const a = r.alert || {};
+  if(a.high_alert){
+    html += `<div class="alert" id="alertBox"><div><strong>High-risk alert ready</strong><div class="small">The system can send an SMS to the registered demo farmer.</div></div><button onclick="sendAlert()">Send Farmer SMS</button></div>`;
+  }else{
+    html += `<div class="alert ok"><div><strong>No farmer alert required</strong><div class="small">The selected scenario is LOW risk.</div></div></div>`;
+  }
+
+  html += `<div class="section"><details><summary style="cursor:pointer;font-weight:800">Backend response</summary><pre class="raw">${esc(JSON.stringify(r,null,2))}</pre></details></div>`;
+  document.getElementById('results').innerHTML = html;
+}
+
+async function runSimulation(){
+  runBtn.disabled=true;
+  document.getElementById('statusTitle').textContent='Running backend simulation…';
+  document.getElementById('statusText').textContent='Generating field conditions and evaluating them through the existing engines.';
+  document.getElementById('results').innerHTML='<div class="empty">Running simulation…</div>';
+  const payload={week:selectedWeek,category:category.value,risk:selectedRisk,condition:condition.value||null};
+  try{
+    const res=await fetch('/api/demo/simulate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error || 'Simulation failed');
+    document.getElementById('statusTitle').textContent='Simulation complete';
+    document.getElementById('statusText').textContent=`Week ${selectedWeek} • ${category.value} • ${selectedRisk.toUpperCase()}`;
+    renderResult(data);
+  }catch(err){
+    document.getElementById('statusTitle').textContent='Simulation error';
+    document.getElementById('statusText').textContent=err.message;
+    document.getElementById('results').innerHTML=`<div class="empty"><strong>Backend error</strong><br>${esc(err.message)}<br><br>Check that Flask is running and /api/demo/simulate is available.</div>`;
+  }finally{runBtn.disabled=false}
+}
+
+async function sendAlert(){
+  if(!lastResult)return;
+  const box=document.getElementById('alertBox');
+  box.innerHTML='<div><strong>Sending SMS…</strong><div class="small">Contacting the configured TextBee service.</div></div>';
+  try{
+    const res=await fetch('/api/demo/send-alert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lastResult)});
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error || 'Alert request failed');
+    if(data.sent){
+      box.className='alert ok';
+      box.innerHTML=`<div><strong>Farmer alert sent</strong><div class="small">${esc(data.message || 'SMS sent successfully.')}</div></div>`;
+    }else{
+      box.className='alert';
+      box.innerHTML=`<div><strong>SMS not sent</strong><div class="small">${esc(data.reason || 'Check TextBee configuration.')}</div></div><button onclick="sendAlert()">Retry</button>`;
+    }
+  }catch(err){
+    box.className='alert';
+    box.innerHTML=`<div><strong>SMS request failed</strong><div class="small">${esc(err.message)}</div></div><button onclick="sendAlert()">Retry</button>`;
+  }
+}
+
+for(const b of document.querySelectorAll('.week')) b.addEventListener('click',()=>{
+  document.querySelectorAll('.week').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); selectedWeek=Number(b.dataset.week);
+});
+for(const b of document.querySelectorAll('.risk button')) b.addEventListener('click',()=>{
+  document.querySelectorAll('.risk button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); selectedRisk=b.dataset.risk;
+});
+category.addEventListener('change',populateConditions);
+runBtn.addEventListener('click',runSimulation);
+populateConditions();
+</script>
+</body>
+</html>

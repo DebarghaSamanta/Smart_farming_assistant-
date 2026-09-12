@@ -9,6 +9,7 @@ from flask_cors import CORS
 
 from main import register_complete_farm
 from database import create_database
+from demo_judges import run_judge_scenario
 
 
 app = Flask(__name__)
@@ -148,6 +149,92 @@ def register_farm_endpoint():
             "status": "ERROR",
             "error": f"Location service unavailable: {error}"
         }), 503
+
+
+    # -----------------------------------------------------
+    # ANYTHING UNEXPECTED
+    # -----------------------------------------------------
+
+    except Exception as error:
+
+        return jsonify({
+            "status": "ERROR",
+            "error": f"Unexpected server error: {error}"
+        }), 500
+
+
+# =========================================================
+# JUDGE DEMO CONTROL
+# Wraps demo_judges.run_judge_scenario() as a web endpoint so the
+# "Demo Control" panel (Week / Module / Level buttons) can drive
+# the real backend over HTTP instead of the CLI.
+#
+# NPK is intentionally not accepted here -- it's a camera-only
+# module (leaf photo upload), not something this endpoint can
+# simulate with sensor data.
+# =========================================================
+
+@app.route("/api/demo/scenario", methods=["POST"])
+def demo_scenario_endpoint():
+
+    data = request.get_json(silent=True)
+
+    if data is None:
+
+        return jsonify({
+            "status": "ERROR",
+            "error": "Request body must be JSON."
+        }), 400
+
+
+    # -----------------------------------------------------
+    # REQUIRED FIELDS CHECK
+    # -----------------------------------------------------
+
+    required_fields = ["week", "module", "level"]
+
+    missing_fields = [
+        field
+        for field in required_fields
+        if field not in data
+    ]
+
+    if missing_fields:
+
+        return jsonify({
+            "status": "ERROR",
+            "error": f"Missing required fields: {', '.join(missing_fields)}"
+        }), 400
+
+
+    # -----------------------------------------------------
+    # CALL DEMO BACKEND
+    # -----------------------------------------------------
+
+    try:
+
+        result = run_judge_scenario(
+            week=data["week"],
+            module=data["module"],
+            level=data["level"]
+        )
+
+        return jsonify({
+            "status": "SUCCESS",
+            "result": result
+        }), 200
+
+
+    # -----------------------------------------------------
+    # BAD WEEK / MODULE / LEVEL VALUE
+    # -----------------------------------------------------
+
+    except ValueError as error:
+
+        return jsonify({
+            "status": "ERROR",
+            "error": str(error)
+        }), 400
 
 
     # -----------------------------------------------------

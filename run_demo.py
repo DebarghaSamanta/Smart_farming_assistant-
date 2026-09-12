@@ -33,7 +33,7 @@ import requests
 DB_PATH = "farm.db"
 
 FARMER_NAME = "Demo Farmer"
-FARMER_PHONE = "+919999999999"
+FARMER_PHONE = "+91-9876543210"
 FARMER_LANGUAGE = "Bengali"
 
 LATITUDE = 22.5726
@@ -94,6 +94,16 @@ SCENARIOS = {
         },
         "rainfall": [18, 22, 15, 20, 12, 8, 16],
     },
+    "pests": {
+            "description": "False smut",
+            "current": {
+                "NW": (29.0, 94.0, 27.0, 72.0, 7.0, 28.0, 1),
+                "NE": (30.0, 95.0, 27.5, 75.0, 7.5, 28.5, 1),
+                "SW": (29.5, 93.0, 27.0, 70.0, 6.8, 28.2, 1),
+                "SE": (30.2, 94.0, 27.4, 73.0, 7.2, 28.7, 1),
+            },
+            "rainfall": [18, 22, 15, 20, 12, 8, 16],
+        },
 }
 
 

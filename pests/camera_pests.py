@@ -1,69 +1,55 @@
-# ============================================================
-# RICE PEST INFERENCE MODULE - ONNX
-# ============================================================
-#
-# Project-ready inference for the trained MobileNetV3-Small
-# rice pest classifier.
-#
-# Pipeline:
-#
-#   image
-#      ↓
-#   resize to 224 x 224
-#      ↓
-#   BGR -> RGB
-#      ↓
-#   scale pixels to [0, 1]
-#      ↓
-#   ImageNet normalization
-#      ↓
-#   float32 NHWC tensor [1, 224, 224, 3]
-#      ↓
-#   MobileNetV3-Small ONNX
-#      ↓
-#   Softmax output [1, 8]
-#      ↓
-#   pest + confidence + top-3
-#
-# The ONNX model contract:
-#   Input name  : input
-#   Input shape : [1, 224, 224, 3]
-#   Input type  : float32
-#   Output name : output
-#   Output shape: [1, 8]
-#   Output      : Softmax probabilities
-#
-# Import from the main project:
-#
-#   from predict_pests import predict_pest
-#   result = predict_pest("image.jpg")
-#
-# Command-line test:
-#
-#   python predict_pests.py image.jpg
-# ============================================================
+
+"""
+Rice pest camera inference.
+
+This inference code mirrors the actual training/export pipeline:
+
+    Image
+      ↓
+    RGB
+      ↓
+    Resize 224 x 224
+      ↓
+    [0,255] -> [0,1]
+      ↓
+    ImageNet normalization
+      ↓
+    NHWC [1,224,224,3]
+      ↓
+    MobileNetV3-Small ONNX
+      ↓
+    Softmax
+      ↓
+    8-class pest prediction
+"""
+
+from __future__ import annotations
 
 from pathlib import Path
 import argparse
 
-import cv2
 import numpy as np
+from PIL import Image
 import onnxruntime as ort
+
+
+# ============================================================
+# PATHS
+# ============================================================
+
+BASE_DIR = Path(__file__).resolve().parent
+
+MODEL_PATH = (
+    BASE_DIR /
+    "rice_pest_final.onnx"
+)
 
 
 # ============================================================
 # MODEL CONFIGURATION
 # ============================================================
 
-BASE_DIR = Path(__file__).resolve().parent
-
-MODEL_PATH = BASE_DIR / "mobilenetv3_model_pests.onnx"
-
-INPUT_NAME = "input"
-OUTPUT_NAME = "output"
-
-INPUT_HEIGHT = 224
-INPUT_WIDTH = 224
+IMAGE_SIZE = 224
 NUM_CLASSES = 8
 
 CLASS_NAMES = [
@@ -78,185 +64,181 @@ CLASS_NAMES = [
 ]
 
 
-# ImageNet normalization values.
-# These are applied AFTER scaling the image from [0,255] to [0,1].
+# ============================================================
+# IMAGE NORMALIZATION
+#
+# EXACTLY MATCHES THE TRAINING NOTEBOOK
+# ============================================================
+
 IMAGENET_MEAN = np.array(
     [0.485, 0.456, 0.406],
-    dtype=np.float32
+    dtype=np.float32,
 )
 
 IMAGENET_STD = np.array(
     [0.229, 0.224, 0.225],
-    dtype=np.float32
+    dtype=np.float32,
 )
 
 
 # ============================================================
-# LOAD ONNX MODEL
+# LOAD MODEL
 # ============================================================
 
 if not MODEL_PATH.exists():
     raise FileNotFoundError(
-        f"Rice pest ONNX model not found: {MODEL_PATH}"
+        f"Rice pest ONNX model not found:\n"
+        f"{MODEL_PATH}"
     )
+
 
 session = ort.InferenceSession(
     str(MODEL_PATH),
-    providers=["CPUExecutionProvider"]
+    providers=[
+        "CPUExecutionProvider"
+    ],
 )
 
 
 # ============================================================
-# VERIFY ONNX MODEL CONTRACT
+# READ MODEL INTERFACE
 # ============================================================
 
 input_info = session.get_inputs()[0]
 output_info = session.get_outputs()[0]
+
 INPUT_NAME = input_info.name
 OUTPUT_NAME = output_info.name
-if input_info.name != INPUT_NAME:
-    raise ValueError(
-        f"Expected ONNX input name '{INPUT_NAME}', "
-        f"but found '{input_info.name}'"
-    )
+
+
+print("\n========== RICE PEST MODEL ==========")
+print("Model :", MODEL_PATH)
+print("Input :", INPUT_NAME)
+print("Shape :", input_info.shape)
+print("Type  :", input_info.type)
+print("Output:", OUTPUT_NAME)
+print("OShape:", output_info.shape)
+print("======================================\n")
+
+
+# ============================================================
+# VERIFY MODEL
+# ============================================================
 
 if input_info.type != "tensor(float)":
     raise TypeError(
-        f"Expected ONNX input type tensor(float), "
-        f"but found '{input_info.type}'"
+        "Expected float32 ONNX input, "
+        f"found {input_info.type}"
     )
 
-expected_height = 224
-expected_width = 224
-expected_channels = 3
 
 actual_shape = input_info.shape
 
 if len(actual_shape) != 4:
     raise ValueError(
-        f"Expected a 4D ONNX input, but found {actual_shape}"
+        f"Expected 4D input, found {actual_shape}"
     )
 
-if actual_shape[1] != expected_height:
+if actual_shape[1] != IMAGE_SIZE:
     raise ValueError(
-        f"Expected input height {expected_height}, "
-        f"but found {actual_shape[1]}"
+        f"Expected height {IMAGE_SIZE}, "
+        f"found {actual_shape[1]}"
     )
 
-if actual_shape[2] != expected_width:
+if actual_shape[2] != IMAGE_SIZE:
     raise ValueError(
-        f"Expected input width {expected_width}, "
-        f"but found {actual_shape[2]}"
+        f"Expected width {IMAGE_SIZE}, "
+        f"found {actual_shape[2]}"
     )
 
-if actual_shape[3] != expected_channels:
+if actual_shape[3] != 3:
     raise ValueError(
-        f"Expected {expected_channels} channels, "
-        f"but found {actual_shape[3]}"
+        f"Expected 3 RGB channels, "
+        f"found {actual_shape[3]}"
     )
 
-if output_info.name != session.get_outputs()[0].name:
-    raise ValueError(
-        f"Expected ONNX output name '{OUTPUT_NAME}', "
-        f"but found '{output_info.name}'"
-    )
-
-actual_output_shape = output_info.shape
-
-if len(actual_output_shape) != 2:
-    raise ValueError(
-        f"Expected a 2D ONNX output, found {actual_output_shape}"
-    )
-
-# Batch dimension may be dynamic.
-if actual_output_shape[1] != NUM_CLASSES:
-    raise ValueError(
-        f"Expected {NUM_CLASSES} class outputs, "
-        f"but found {actual_output_shape}"
-    )
 
 if len(CLASS_NAMES) != NUM_CLASSES:
     raise ValueError(
-        f"Expected {NUM_CLASSES} class names, "
-        f"but found {len(CLASS_NAMES)}"
+        f"Expected {NUM_CLASSES} classes, "
+        f"found {len(CLASS_NAMES)}"
     )
 
 
 # ============================================================
 # IMAGE PREPROCESSING
+#
+# EXACT EQUIVALENT OF:
+#
+# transforms.Compose([
+#     transforms.Resize((224,224)),
+#     transforms.ToTensor(),
+#     transforms.Normalize(
+#         mean=[0.485,0.456,0.406],
+#         std=[0.229,0.224,0.225]
+#     )
+# ])
+#
+# The ONNX wrapper already performs the same operations.
+# Therefore this function returns RAW 0..255 RGB pixels.
 # ============================================================
 
 def prepare_image(image_path):
     """
-    Prepare one image exactly according to the ONNX model contract.
+    Prepare image for the exported ONNX model.
 
-    Steps:
-        1. Read image
-        2. Resize to 224 x 224
-        3. BGR -> RGB
-        4. Convert to float32
-        5. Scale [0,255] -> [0,1]
-        6. ImageNet normalization
-        7. Add batch dimension
+    Returns:
 
-    Returns
-    -------
-    np.ndarray
-        Shape: [1, 224, 224, 3]
-        dtype: float32
+        shape  = [1, 224, 224, 3]
+        dtype  = float32
+        range  = 0..255
+        layout = NHWC
+        color  = RGB
     """
 
     image_path = Path(image_path)
 
-    if not image_path.exists():
+    if not image_path.is_file():
         raise FileNotFoundError(
-            f"Image not found: {image_path}"
+            f"Image not found:\n{image_path}"
         )
 
-    image = cv2.imread(str(image_path))
 
-    if image is None:
-        raise ValueError(
-            f"Could not read image: {image_path}"
+    # --------------------------------------------------------
+    # PIL RGB
+    # --------------------------------------------------------
+
+    with Image.open(image_path) as image:
+
+        image = image.convert("RGB")
+
+        # Same resize requested by training.
+        image = image.resize(
+            (IMAGE_SIZE, IMAGE_SIZE),
+            Image.Resampling.BILINEAR,
         )
 
-    # OpenCV loads BGR. The model expects RGB.
-    image = cv2.cvtColor(
-        image,
-        cv2.COLOR_BGR2RGB
-    )
+        image_array = np.asarray(
+            image,
+            dtype=np.float32,
+        )
 
-    # Resize exactly to model input dimensions.
-    image = cv2.resize(
-        image,
-        (INPUT_WIDTH, INPUT_HEIGHT),
-        interpolation=cv2.INTER_LINEAR
-    )
 
-    # Convert [0,255] uint8 -> [0,1] float32.
-    image = image.astype(np.float32) / 255.0
-
-    # ImageNet normalization:
+    # --------------------------------------------------------
+    # Add batch dimension
     #
-    # normalized = (image - mean) / std
-    #
-    # Broadcasting applies the values independently to
-    # the R, G and B channels.
-    image = (
-        image - IMAGENET_MEAN
-    ) / IMAGENET_STD
-
-    # Add batch dimension:
-    #
-    # (224, 224, 3)
+    # [224,224,3]
     #       ↓
-    # (1, 224, 224, 3)
-    image = np.expand_dims(
-        image,
-        axis=0
-    ).astype(np.float32)
+    # [1,224,224,3]
+    # --------------------------------------------------------
 
-    return image
+    image_array = np.expand_dims(
+        image_array,
+        axis=0,
+    )
+
+
+    return image_array
 
 
 # ============================================================
@@ -265,77 +247,122 @@ def prepare_image(image_path):
 
 def predict_pest(image_path):
     """
-    Predict the rice pest in an image.
+    Predict rice pest from one image.
 
-    Parameters
-    ----------
-    image_path : str or pathlib.Path
-        Path to the rice-pest image.
+    Returns:
 
-    Returns
-    -------
-    dict
-        {
-            "prediction": str,
-            "confidence": float,
-            "probabilities": {
-                class_name: float,
-                ...
-            },
-            "top3": [
-                {
-                    "class": str,
-                    "confidence": float
-                },
-                ...
-            ]
-        }
+    {
+        "prediction": str,
+        "confidence": float,
+        "probabilities": dict,
+        "top3": list
+    }
     """
 
-    image = prepare_image(image_path)
+    image = prepare_image(
+        image_path
+    )
 
-    # Run ONNX inference.
+
+    # --------------------------------------------------------
+    # ONNX INFERENCE
+    #
+    # The exported ONNX model itself performs:
+    #
+    # /255
+    # ImageNet normalization
+    # NHWC -> NCHW
+    # MobileNetV3
+    # Softmax
+    # --------------------------------------------------------
+
     raw_output = session.run(
-    [OUTPUT_NAME],
-    {INPUT_NAME: image}
+        [OUTPUT_NAME],
+        {
+            INPUT_NAME: image
+        },
     )[0]
 
-    # Model output is already Softmax probabilities.
+
     probabilities = np.asarray(
         raw_output,
-        dtype=np.float32
-    )[0]
+        dtype=np.float32,
+    )
 
-    if probabilities.shape != (NUM_CLASSES,):
+
+    # --------------------------------------------------------
+    # Remove batch dimension
+    #
+    # [1,8] -> [8]
+    # --------------------------------------------------------
+
+    if probabilities.ndim != 2:
         raise ValueError(
-            f"Expected prediction vector shape "
-            f"({NUM_CLASSES},), found {probabilities.shape}"
+            "Unexpected ONNX output dimensions: "
+            f"{probabilities.shape}"
         )
 
-    if not np.all(np.isfinite(probabilities)):
+    if probabilities.shape[0] != 1:
         raise ValueError(
-            "ONNX model returned NaN or infinite probabilities."
+            "Expected batch size 1, "
+            f"found {probabilities.shape}"
         )
 
-    # Since the ONNX output is explicitly Softmax, do NOT apply
-    # another softmax here.
-    if np.any(probabilities < 0) or np.any(probabilities > 1):
+    if probabilities.shape[1] != NUM_CLASSES:
         raise ValueError(
-            "ONNX output contains values outside [0,1]. "
-            "The model is expected to return Softmax probabilities."
+            "Expected "
+            f"{NUM_CLASSES} class probabilities, "
+            f"found {probabilities.shape}"
         )
 
-    if not np.isclose(
-        float(probabilities.sum()),
-        1.0,
-        atol=1e-3
+
+    probabilities = probabilities[0]
+
+
+    # --------------------------------------------------------
+    # VALIDATE PROBABILITIES
+    # --------------------------------------------------------
+
+    if not np.all(
+        np.isfinite(probabilities)
     ):
         raise ValueError(
-            "ONNX output does not sum to approximately 1. "
-            "Expected Softmax probabilities."
+            "Model returned NaN or infinite values."
         )
 
-    # Highest-probability class.
+
+    if np.any(probabilities < 0):
+        raise ValueError(
+            "Model returned negative probabilities."
+        )
+
+
+    if np.any(probabilities > 1):
+        raise ValueError(
+            "Model returned values greater than 1."
+        )
+
+
+    probability_sum = float(
+        probabilities.sum()
+    )
+
+
+    if not np.isclose(
+        probability_sum,
+        1.0,
+        atol=1e-3,
+    ):
+        raise ValueError(
+            "Model output does not look like "
+            f"Softmax probabilities. Sum={probability_sum}"
+        )
+
+
+    # --------------------------------------------------------
+    # PREDICTED CLASS
+    # --------------------------------------------------------
+
     predicted_index = int(
         np.argmax(probabilities)
     )
@@ -348,60 +375,86 @@ def predict_pest(image_path):
         probabilities[predicted_index]
     )
 
-    # Top 3 classes.
+
+    # --------------------------------------------------------
+    # TOP 3
+    # --------------------------------------------------------
+
     ranked_indices = np.argsort(
         probabilities
-    )[::-1][:3]
+    )[::-1]
 
-    top3 = [
-        {
-            "class": CLASS_NAMES[int(index)],
-            "confidence": float(
-                probabilities[int(index)]
-            )
-        }
-        for index in ranked_indices
-    ]
+    top3 = []
+
+    for index in ranked_indices[:3]:
+
+        index = int(index)
+
+        top3.append(
+            {
+                "class": CLASS_NAMES[index],
+                "confidence": float(
+                    probabilities[index]
+                ),
+            }
+        )
+
+
+    # --------------------------------------------------------
+    # RESULT
+    # --------------------------------------------------------
 
     return {
         "prediction": predicted_class,
         "confidence": confidence,
         "probabilities": {
-            CLASS_NAMES[index]: float(
-                probabilities[index]
+            CLASS_NAMES[i]: float(
+                probabilities[i]
             )
-            for index in range(NUM_CLASSES)
+            for i in range(NUM_CLASSES)
         },
         "top3": top3,
     }
 
 
 # ============================================================
-# COMMAND-LINE TESTER
+# COMMAND LINE
 # ============================================================
 
 def main():
+
     parser = argparse.ArgumentParser(
         description=(
-            "Predict rice pest from an image "
-            "using the MobileNetV3-Small ONNX model."
+            "Rice pest prediction using "
+            "MobileNetV3-Small ONNX"
         )
     )
 
     parser.add_argument(
         "image_path",
-        help="Path to the rice-pest image"
+        help="Path to rice pest image",
     )
 
     args = parser.parse_args()
+
 
     result = predict_pest(
         args.image_path
     )
 
-    print("\n" + "=" * 65)
-    print("RICE PEST PREDICTION")
-    print("=" * 65)
+
+    print(
+        "\n"
+        + "=" * 65
+    )
+
+    print(
+        "RICE PEST PREDICTION"
+    )
+
+    print(
+        "=" * 65
+    )
 
     print(
         f"\nImage      : {args.image_path}"
@@ -416,16 +469,39 @@ def main():
         f"{result['confidence'] * 100:.2f}%"
     )
 
-    print("\nTop 3 predictions:")
+
+    print(
+        "\nTop 3 predictions:"
+    )
 
     for item in result["top3"]:
+
         print(
             f"  {item['class']:30s} "
-            f"{item['confidence'] * 100:.2f}%"
+            f"{item['confidence'] * 100:7.2f}%"
         )
 
-    print("=" * 65)
+
+    print(
+        "\nAll probabilities:"
+    )
+
+    for class_name, probability in (
+        result["probabilities"].items()
+    ):
+
+        print(
+            f"  {class_name:30s} "
+            f"{probability * 100:7.2f}%"
+        )
+
+
+    print(
+        "\n"
+        + "=" * 65
+    )
 
 
 if __name__ == "__main__":
     main()
+
